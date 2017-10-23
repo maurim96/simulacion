@@ -1,6 +1,7 @@
 package logica;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 
 import distribuciones.DistExponencial;
 import entidades.Cliente;
@@ -19,15 +20,16 @@ public class Principal {
 	public static double tiemProm; /*Tiempo promedio de espera de los clientes regulares en cola*/
 	public static ArrayList<Cliente> colaReg;
 	public static ArrayList<Cliente> colaRap;
-	public static int cantEv = 3;
+	public static int cantEv = 4;
 	public static double acumtiem;
+	public static double[] X = new double[100];
 
 	public static void main(String[] args) {
-		/*meter cantidad de servidores*/
-		int eventoProx;
-		Principal.inicializacion(1,1,cantEv);
-		/*Tiempo de simulacion harcodeado*/
+		
 		for(int i = 0; i < 100; i++) {
+			/*meter cantidad de servidores*/
+			int eventoProx;
+			Principal.inicializacion(2,1,cantEv);
 		while(reloj < tiempoSim) {
 			eventoProx = tiempos(cantEv);
 			switch (eventoProx) {
@@ -40,14 +42,19 @@ public class Principal {
 			case 2:
 				partidaRapida(0);
 				break;
+			case 3:
+				partidaRegular(1);
+				break;
 			default:
 				break;
 			}
 		}
-		/*reporte();*/
-		acumtiem = acumtiem + (tiempoTotal/nccd);
+		reporte();
+		X[i]=tiempoTotal/nccd;
 		}
-		System.out.println("TOTAL PROMEDIO: " +acumtiem/100);
+		System.out.println("--------FIN DE SIMULACIÓN--------");
+		System.out.println("Valores de Xi");
+		System.out.println(Arrays.toString(X));
 	}
 	
 	private static void reporte() {
@@ -70,7 +77,7 @@ public class Principal {
 				colaReg.remove(0);
 			}
 			else {
-				cajerosRapido[0].setOcupado(false);
+				cajerosRapido[nroCaj].setOcupado(false);
 				listaEv[2] = tiempoSim;
 			}
 		}
@@ -78,19 +85,25 @@ public class Principal {
 
 	private static void partidaRegular(int nroCaj) {
 		if (colaReg.size() != 0) { /*Si hay clientes en cola de cajero regular*/
-			generarPartidaRegular(colaReg.get(0));
+			generarPartidaRegular(colaReg.get(0),nroCaj);
 			tiempoTotal = tiempoTotal + colaReg.get(0).calcularDemoraEnCola(reloj);
 			nccd++;
 			colaReg.remove(0);
 		}
 		else {
 			if (colaRap.size() != 0) { /*Si hay clientes de cajero rapido*/
-				generarPartidaRegular(colaRap.get(0));
+				generarPartidaRegular(colaRap.get(0),nroCaj);
 				colaRap.remove(0);
 			}
 			else {
-				cajerosRegular[0].setOcupado(false);
-				listaEv[1] = tiempoSim;
+				cajerosRegular[nroCaj].setOcupado(false);
+				if(nroCaj==0){
+					listaEv[1] = tiempoSim;
+				}else
+					if(nroCaj==1){
+					listaEv[3] = tiempoSim;	
+				}
+				
 			}
 		}
 	}
@@ -100,8 +113,9 @@ public class Principal {
 		Cliente cli = new Cliente(reloj);
 		if (cli.isRegular()) {
 			Servidor cajero = buscarCajeroRegularDesocupado();
+			int indice = indiceCajeroRegularDesocupado();
 			if (cajero != null) { /*Si el cajero regular esta desocupado*/
-				generarPartidaRegular(cli);
+				generarPartidaRegular(cli, indice);
 				nccd++;
 				cajero.setOcupado(true);
 			}
@@ -125,8 +139,9 @@ public class Principal {
 			}
 			else {
 				Servidor cajeroReg = buscarCajeroRegularDesocupado();
+				int indice = indiceCajeroRegularDesocupado();
 				if (cajeroReg != null && colaRap.size() == 0) { /*Si elcajero regular esta desocupado y no hay clientes en cola de cajero rapido*/
-					generarPartidaRegular(cli);
+					generarPartidaRegular(cli, indice);
 					cajeroReg.setOcupado(true);
 				}
 				else {
@@ -145,6 +160,17 @@ public class Principal {
 			}
 		}
 		return cajero;
+	}
+	
+	public static int indiceCajeroRegularDesocupado() {
+		int indice = 0;
+		for(int i = 0; i < cajerosRegular.length; i++) {
+			if (!cajerosRegular[i].isOcupado()) {
+				indice = i;
+				break;
+			}
+		}
+		return indice;
 	}
 	
 	public static Servidor buscarCajeroRapidoDesocupado() {
@@ -178,8 +204,7 @@ public class Principal {
 		cajerosRapido = new Servidor[cantRap];
 		cajerosRegular = new Servidor[cantReg];
 		listaEv = new double[cantEv];
-		cajerosRegular = new Servidor[cantReg];
-		for (int i = 0; i < cajerosRapido.length; i++) {
+		for (int i = 0; i < cajerosRegular.length; i++) {
 			cajerosRegular[i] = new Servidor();
 		}
 		cajerosRapido = new Servidor[cantRap];
@@ -198,18 +223,25 @@ public class Principal {
 		listaEv[0] = DistExponencial.generadorDistribucionExponencial(distArr);
 		listaEv[1] = tiempoSim;
 		listaEv[2] = tiempoSim;
+		listaEv[3] = tiempoSim;
 	}
 	
 	public static void generarArriboCliente() {
 		listaEv[0] = DistExponencial.generadorDistribucionExponencial(distArr) + reloj;
 	}
 	
-	public static void generarPartidaRegular(Cliente cli) {
-		listaEv[1] = cli.calcularTiempoServicio() + reloj;		
+	public static void generarPartidaRegular(Cliente cli, int indice) {
+		if(indice==0){
+			listaEv[1] = cli.calcularTiempoServicio() + reloj;	
+		}else{
+			listaEv[3] = cli.calcularTiempoServicio() + reloj;	
+		}
+			
 	}
 	
 	public static void GenerarPartidaRapida(Cliente cli) {
 		listaEv[2] = cli.calcularTiempoServicio() + reloj;	
 	}
+	
 
 }
